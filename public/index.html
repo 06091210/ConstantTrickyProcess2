@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>チャットアプリ</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { font-family: sans-serif; }
+    ul { list-style: none; padding: 0; }
+    li { margin: 6px 0; }
+    button { margin-left: 10px; }
+  </style>
+</head>
+<body>
+  <h1>リアルタイムチャット</h1>
+  <input id="msg" placeholder="メッセージ" />
+  <button onclick="send()">送信</button>
+  <ul id="messages"></ul>
+
+  <script>
+    const socket = io();
+    const messages = document.getElementById("messages");
+
+    // ユーザーID（ブラウザごとに保持）
+    let userId = localStorage.getItem("chatUserId");
+    if (!userId) {
+      userId = crypto.randomUUID();
+      localStorage.setItem("chatUserId", userId);
+    }
+
+    socket.on("chat history", function(history) {
+      history.forEach(addMessage);
+    });
+
+    socket.on("chat message", function(msg) {
+      addMessage(msg);
+    });
+
+    socket.on("message deleted", function(id) {
+      const item = document.getElementById(id);
+      if (item) item.remove();
+    });
+
+    function send() {
+      const input = document.getElementById("msg");
+      const text = input.value;
+      if (text.trim()) {
+        socket.emit("chat message", { text, userId });
+        input.value = "";
+      }
+    }
+
+    function addMessage(msg) {
+      const item = document.createElement("li");
+      item.id = msg.id;
+
+      item.innerHTML = `
+        ${msg.text}
+        ${msg.userId === userId ? `<button onclick="deleteMessage('${msg.id}')">削除</button>` : ""}
+      `;
+      messages.appendChild(item);
+    }
+
+    function deleteMessage(id) {
+      if (confirm("このメッセージを削除しますか？")) {
+        socket.emit("delete message", { id, userId });
+      }
+    }
+  </script>
+</body>
+</html>
